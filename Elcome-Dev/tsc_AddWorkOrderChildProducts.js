@@ -1,38 +1,30 @@
-var _navigationInProgress = false;
-var _navigationResetTimer = null;
+// WHY target:1 instead of target:2 (dialog):
+//
+// Field Service Mobile is a native Android app (Xamarin/MAUI) embedding WebViews.
+// With target:2 the Android OS routes the Back keypress to the WebView FIRST —
+// the WebView navigates its own history to about:blank before Dynamics can
+// intercept. The navigateTo Promise never resolves. On the next ribbon press,
+// Dynamics sees the old dialog as still pending and shows the same blank WebView.
+//
+// With target:1 Dynamics owns the navigation stack. Back is intercepted at the
+// Activity level, the Promise resolves cleanly, and every press gets a fresh
+// page load with window.onload firing correctly.
 
 function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds) {
-    if (_navigationInProgress) {
-        // Previous dialog may still be open — reset the flag and allow re-entry
-        // so the user is never permanently locked out.
-        _navigationInProgress = false;
-        clearTimeout(_navigationResetTimer);
-    }
-
     if (selectedControlSelectedItemIds.length === 0) {
         showAlertDialog("Select a row to proceed.");
         return;
     }
 
-    _navigationInProgress = true;
-
-    // Safety reset: if navigateTo Promise never resolves (dialog not properly
-    // torn down), unlock the button after 5 minutes.
-    _navigationResetTimer = setTimeout(function () {
-        _navigationInProgress = false;
-    }, 5 * 60 * 1000);
-
     var selectedworkorder = selectedControlSelectedItemIds[0].Id;
 
     Xrm.WebApi.retrieveRecord("tsc_workorderparentproduct", selectedworkorder)
         .then(function (result) {
-            if (result._tsc_workorder_value == null) {
-                _navigationInProgress = false;
+            if (!result._tsc_workorder_value) {
                 showAlertDialog("WorkOrder ID is null, cannot create child record.");
                 return;
             }
-            if (result._tsc_products_value == null) {
-                _navigationInProgress = false;
+            if (!result._tsc_products_value) {
                 showAlertDialog("Product ID is null, cannot create child record.");
                 return;
             }
@@ -43,39 +35,19 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                 cacheBuster:     Date.now()
             };
 
-            var clientType = Xrm.Utility.getGlobalContext().client.getClient();
-
-            var navigationOptions =
-                clientType === "Mobile"
-                    ? {
-                        target: 1
-                    }
-                    : {
-                        target: 2,
-                        width: 1000,
-                        height: 600,
-                        position: 1,
-                        title: "Add Child Products"
-                    };
-            
             return Xrm.Navigation.navigateTo(
                 {
-                    pageType: "webresource",
+                    pageType:        "webresource",
                     webresourceName: "tsc_Elcome.AddChildWOProducts.MobileApp.Form",
-                    data: JSON.stringify(WorkOrderData)
+                    data:            JSON.stringify(WorkOrderData)
                 },
-                navigationOptions
+                {
+                    target: 1   // inline page — fresh load each time, Back returns to grid
+                }
             );
         })
-        .then(function () {
-            // navigateTo resolved — dialog was properly closed
-            _navigationInProgress = false;
-            clearTimeout(_navigationResetTimer);
-        })
         .catch(function (error) {
-            _navigationInProgress = false;
-            clearTimeout(_navigationResetTimer);
-            showAlertDialog("Error opening product dialog: " + error.message);
+            showAlertDialog("Error opening product page: " + error.message);
         });
 }
 
