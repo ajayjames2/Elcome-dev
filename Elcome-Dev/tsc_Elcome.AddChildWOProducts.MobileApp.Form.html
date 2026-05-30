@@ -1000,22 +1000,24 @@
         }
 
         function closeDialogSafe() {
-            // Try each close mechanism in order. The goal is to resolve the navigateTo
-            // Promise inside Dynamics so the next open gets a properly torn-down WebView.
-            // history.back() must NOT be used — it navigates the WebView to about:blank,
-            // leaving the Promise unresolved and the next open with a blank shell.
-            const attempts = [
-                // 1. Parent-frame Xrm close (web resource in iframe inside dialog)
-                function () { window.parent.Xrm.Page.ui.close(); },
-                // 2. Direct Xrm close (deprecated but works on some Dynamics versions)
-                function () { Xrm.Page.ui.close(); },
-                // 3. Standard window close — Dynamics native layer intercepts this
-                function () { window.close(); }
-            ];
-            for (let i = 0; i < attempts.length; i++) {
-                try { attempts[i](); return; } catch (e) { dbg("close[" + i + "] failed: " + e.message); }
-            }
-            dbg("all close attempts failed — use device back button");
+            // DO NOT call window.close(), Xrm.Page.ui.close(), history.back(), or any
+            // JS navigation API. Every one of them navigates the WebView to about:blank
+            // without resolving the navigateTo Promise. Dynamics then reuses the same
+            // blank WebView on the next open, so the HTML never loads.
+            //
+            // The ONLY safe close on Android is the native device Back button.
+            // Dynamics intercepts it at the native Activity level, properly tears down
+            // the dialog, resolves the navigateTo Promise, and gives the next open a
+            // fresh WebView.
+            //
+            // Here we just reset the UI so the user sees a clear "press Back" prompt.
+            dbg("close: UI reset — press device Back to close");
+            document.getElementById("confirmationOverlay").style.display  = "none";
+            document.getElementById("confirmationActionButtons").style.display = "flex";
+            document.getElementById("processingButton").style.display     = "none";
+            document.getElementById("okButton").style.display             = "none";
+            clearForm();
+            document.getElementById("rowCount").innerText = "Done — press Back to close";
         }
 
 
