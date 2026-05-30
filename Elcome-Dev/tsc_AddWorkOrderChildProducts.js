@@ -1,21 +1,41 @@
-// No async/await — Dynamics mobile ribbon infrastructure does not await the
-// returned Promise, so any async function risks silent failures on mobile.
-// Pure .then()/.catch() chains are handled synchronously by the ribbon call.
+// Guard: prevents a second navigateTo while the first dialog's Promise is still
+// pending (unresolved). If navigateTo never resolves (e.g. window.close() was
+// ignored), the guard auto-resets after 5 minutes so the button stays usable.
+var _navigationInProgress = false;
+var _navigationResetTimer = null;
+
 function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds) {
+    if (_navigationInProgress) {
+        // Previous dialog may still be open — reset the flag and allow re-entry
+        // so the user is never permanently locked out.
+        _navigationInProgress = false;
+        clearTimeout(_navigationResetTimer);
+    }
+
     if (selectedControlSelectedItemIds.length === 0) {
         showAlertDialog("Select a row to proceed.");
         return;
     }
+
+    _navigationInProgress = true;
+
+    // Safety reset: if navigateTo Promise never resolves (dialog not properly
+    // torn down), unlock the button after 5 minutes.
+    _navigationResetTimer = setTimeout(function () {
+        _navigationInProgress = false;
+    }, 5 * 60 * 1000);
 
     var selectedworkorder = selectedControlSelectedItemIds[0].Id;
 
     Xrm.WebApi.retrieveRecord("tsc_workorderparentproduct", selectedworkorder)
         .then(function (result) {
             if (result._tsc_workorder_value == null) {
+                _navigationInProgress = false;
                 showAlertDialog("WorkOrder ID is null, cannot create child record.");
                 return;
             }
             if (result._tsc_products_value == null) {
+                _navigationInProgress = false;
                 showAlertDialog("Product ID is null, cannot create child record.");
                 return;
             }
@@ -41,7 +61,14 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                 }
             );
         })
+        .then(function () {
+            // navigateTo resolved — dialog was properly closed
+            _navigationInProgress = false;
+            clearTimeout(_navigationResetTimer);
+        })
         .catch(function (error) {
+            _navigationInProgress = false;
+            clearTimeout(_navigationResetTimer);
             showAlertDialog("Error opening product dialog: " + error.message);
         });
 }

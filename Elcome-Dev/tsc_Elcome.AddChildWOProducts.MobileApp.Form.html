@@ -477,6 +477,7 @@
         let _appInitialized = false;
         let _reinitPending  = false;
         let _pollHref       = "";
+        let _firstLoadDone  = false;  // true after first successful loadTableData
 
         // DOM-based debug overlay — works even when alert() is suppressed by WebView
         function dbg(msg) {
@@ -512,6 +513,7 @@
             _appInitialized = false;
             _reinitPending  = false;
             _pollHref       = "";
+            _firstLoadDone  = false;
             waitForXrm(0);
         };
 
@@ -533,8 +535,13 @@
             if (_appInitialized) doReinit();
         });
 
-        // setInterval URL poller — catches second open when Dynamics updates the href
-        // without firing any page-lifecycle event
+        // resume — Cordova/PowerApps native bridge event when app/dialog comes to foreground
+        document.addEventListener("resume", function () {
+            dbg("resume event _appInitialized=" + _appInitialized);
+            if (_appInitialized) doReinit();
+        }, false);
+
+        // URL poller — catches second open when Dynamics updates href without a page-lifecycle event
         setInterval(function () {
             const h = window.location.href;
             if (!_pollHref) { _pollHref = h; return; }
@@ -544,6 +551,18 @@
                 if (_appInitialized) doReinit();
             }
         }, 800);
+
+        // Stale-state recovery — last resort if every event-based trigger missed the second open.
+        // When first load has completed but the table is now empty with no workorderId,
+        // the WebView was reused without firing any lifecycle event → force a full reload.
+        setInterval(function () {
+            if (!_firstLoadDone || !_appInitialized || _reinitPending) return;
+            const tbody = document.querySelector("#productTable tbody");
+            if (tbody && tbody.children.length === 0 && !workorderId) {
+                dbg("stale WebView detected → location.reload()");
+                location.reload();
+            }
+        }, 2000);
 
         function waitForXrm(attempts) {
             if (attempts > 20) {
@@ -558,6 +577,7 @@
                 showLoader(true);
                 loadTableData("").then(() => {
                     _reinitPending = false;
+                    _firstLoadDone = true;
                     _pollHref = window.location.href;  // snapshot so poller ignores this open
 
                     const btn = document.getElementById("submitBtn");
@@ -974,15 +994,22 @@
         }
 
         function closeDialogSafe() {
-            // history.back() was corrupting the WebView — navigated it to about:blank
-            // so the second navigateTo reused a blank WebView and never reloaded the page.
-            // window.close() is intercepted by Dynamics at the native level and properly
-            // tears down the dialog container, so the next open gets a fresh WebView.
-            try {
-                window.close();
-            } catch (e) {
-                dbg("window.close() failed: " + e.message);
+            // Try each close mechanism in order. The goal is to resolve the navigateTo
+            // Promise inside Dynamics so the next open gets a properly torn-down WebView.
+            // history.back() must NOT be used — it navigates the WebView to about:blank,
+            // leaving the Promise unresolved and the next open with a blank shell.
+            const attempts = [
+                // 1. Parent-frame Xrm close (web resource in iframe inside dialog)
+                function () { window.parent.Xrm.Page.ui.close(); },
+                // 2. Direct Xrm close (deprecated but works on some Dynamics versions)
+                function () { Xrm.Page.ui.close(); },
+                // 3. Standard window close — Dynamics native layer intercepts this
+                function () { window.close(); }
+            ];
+            for (let i = 0; i < attempts.length; i++) {
+                try { attempts[i](); return; } catch (e) { dbg("close[" + i + "] failed: " + e.message); }
             }
+            dbg("all close attempts failed — use device back button");
         }
 
 
@@ -1067,7 +1094,7 @@
 <!-- <body style="overflow-wrap: break-word;" onfocusout="parent.setEmailRange();"> -->
     <body style="overflow-wrap: break-word;">
     <!-- Debug overlay: remove once second-open reinit is confirmed working -->
-    <div id="debugLog"></div>
+    <div id="debugLog">INIT</div>
 
     <input type="text" id="searchBox" placeholder="Search product...">
 
