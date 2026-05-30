@@ -517,50 +517,55 @@
             waitForXrm(0);
         };
 
-        // visibilitychange — may not fire on all Android WebViews
+        // ── Reinit triggers ──────────────────────────────────────────────────────
+        // ALL triggers guard on _firstLoadDone so they cannot fire during the
+        // initial load and interfere with the first open.
+
         document.addEventListener("visibilitychange", function () {
             dbg("visibilitychange: " + document.visibilityState);
-            if (document.visibilityState === "visible" && _appInitialized) doReinit();
+            if (document.visibilityState === "visible" && _firstLoadDone) doReinit();
         });
 
-        // pageshow — iOS / desktop dialog reuse
         window.addEventListener("pageshow", function (event) {
             dbg("pageshow persisted=" + event.persisted);
-            if ((event.persisted || performance.navigation?.type === 2) && _appInitialized) doReinit();
+            if ((event.persisted || performance.navigation?.type === 2) && _firstLoadDone) doReinit();
         });
 
-        // focus — fires when WebView panel is brought back to front on some Android versions
         window.addEventListener("focus", function () {
-            dbg("window.focus _appInitialized=" + _appInitialized);
-            if (_appInitialized) doReinit();
+            dbg("window.focus firstLoadDone=" + _firstLoadDone);
+            if (_firstLoadDone) doReinit();
         });
 
-        // resume — Cordova/PowerApps native bridge event when app/dialog comes to foreground
+        // Cordova/PowerApps native bridge resume event
         document.addEventListener("resume", function () {
-            dbg("resume event _appInitialized=" + _appInitialized);
-            if (_appInitialized) doReinit();
+            dbg("resume event firstLoadDone=" + _firstLoadDone);
+            if (_firstLoadDone) doReinit();
         }, false);
 
-        // URL poller — catches second open when Dynamics updates href without a page-lifecycle event
+        // URL poller — only active after first load so it doesn't race with loadTableData
         setInterval(function () {
             const h = window.location.href;
             if (!_pollHref) { _pollHref = h; return; }
-            if (h !== _pollHref) {
+            if (h !== _pollHref && _firstLoadDone) {
                 dbg("href changed → reinit");
                 _pollHref = h;
-                if (_appInitialized) doReinit();
+                doReinit();
             }
         }, 800);
 
-        // Stale-state recovery — last resort if every event-based trigger missed the second open.
-        // When first load has completed but the table is now empty with no workorderId,
-        // the WebView was reused without firing any lifecycle event → force a full reload.
+        // Stale-state recovery — fires only after first load completed, table is empty,
+        // and no workorderId is set. Debounced to once per 10 s to prevent loops.
+        let _lastStaleReinit = 0;
         setInterval(function () {
             if (!_firstLoadDone || !_appInitialized || _reinitPending) return;
             const tbody = document.querySelector("#productTable tbody");
             if (tbody && tbody.children.length === 0 && !workorderId) {
-                dbg("stale WebView detected → location.reload()");
-                location.reload();
+                const now = Date.now();
+                if (now - _lastStaleReinit > 10000) {
+                    _lastStaleReinit = now;
+                    dbg("stale WebView detected → doReinit");
+                    doReinit();
+                }
             }
         }, 2000);
 
