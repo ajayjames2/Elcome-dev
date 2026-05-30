@@ -431,6 +431,24 @@
                 height: 20px;
             }
         }
+        /* Debug overlay — remove once second-open reinit is confirmed working */
+        #debugLog {
+            position: fixed;
+            top: 0;
+            right: 0;
+            z-index: 99999;
+            background: rgba(0, 0, 0, 0.82);
+            color: #0f0;
+            font-size: 10px;
+            font-family: monospace;
+            max-width: 60vw;
+            max-height: 38vh;
+            overflow-y: auto;
+            padding: 4px 6px;
+            word-break: break-all;
+            pointer-events: none;
+        }
+
         /* Hidden columns: Price (4), Quantity (5), Product Unit GUID (6) */
         th:nth-child(4),
         th:nth-child(5),
@@ -456,117 +474,128 @@
         const selectedProductData = new Map();
 
         // ─── Init ─────────────────────────────────────────────────────────────────
-let _appInitialized = false;  // guard so onload doesn't double-init
+        let _appInitialized = false;
+        let _reinitPending  = false;
+        let _pollHref       = "";
 
-window.onload = function () {
-    _appInitialized = false;
-    waitForXrm(0);
-};
+        // DOM-based debug overlay — works even when alert() is suppressed by WebView
+        function dbg(msg) {
+            const el = document.getElementById("debugLog");
+            if (!el) return;
+            const line = document.createElement("div");
+            line.textContent = new Date().toLocaleTimeString() + ": " + msg;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
 
-// Fires when WebView panel is re-shown on Android (second open)
-document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && _appInitialized) {
-        selectedProducts.clear();
-        selectedProductData.clear();
-        workorderId     = null;
-        parentProductId = null;
-        sessionStorage.removeItem("workorderId");
-        sessionStorage.removeItem("parentProductId");
-        waitForXrm(0);
-    }
-});
+        // Single reinit entry-point — all triggers call this
+        function doReinit() {
+            if (_reinitPending) { dbg("doReinit skipped (already pending)"); return; }
+            _reinitPending = true;
+            dbg("doReinit started");
+            selectedProducts.clear();
+            selectedProductData.clear();
+            workorderId     = null;
+            parentProductId = null;
+            sessionStorage.removeItem("workorderId");
+            sessionStorage.removeItem("parentProductId");
+            waitForXrm(0);
+        }
 
-// Fallback: pageshow for iOS / desktop dialog reuse
-window.addEventListener("pageshow", function (event) {
-    if ((event.persisted || performance.navigation?.type === 2) && _appInitialized) {
-        selectedProducts.clear();
-        selectedProductData.clear();
-        workorderId     = null;
-        parentProductId = null;
-        sessionStorage.removeItem("workorderId");
-        sessionStorage.removeItem("parentProductId");
-        waitForXrm(0);
-    }
-});
+        window.onload = function () {
+            dbg("window.onload");
+            _appInitialized = false;
+            _reinitPending  = false;
+            _pollHref       = "";
+            waitForXrm(0);
+        };
 
-function waitForXrm(attempts) {
-    if (attempts > 20) {
-        alert("XRM TIMEOUT after 20 attempts");
-        return;
-    }
-    if (typeof Xrm !== "undefined" && Xrm.WebApi) {
-
-        _appInitialized = true;  // mark as ready so visibilitychange can trigger reinit
-
-        const isAndroidApp = /Android/i.test(navigator.userAgent);
-
-        showLoader(true);
-        loadTableData("").then(() => {
-
-            // submitBtn — null-safe to prevent double-binding
-            const btn = document.getElementById("submitBtn");
-            btn.onclick = null;
-            btn.addEventListener("click", (e) => {
-                e.preventDefault();
-                submitSelectedProducts();
-            });
-
-            // searchBox — remove old listener before adding new one
-            const searchBox = document.getElementById("searchBox");
-            const newSearchBox = searchBox.cloneNode(true);  // cloneNode strips all listeners
-            searchBox.parentNode.replaceChild(newSearchBox, searchBox);
-            newSearchBox.addEventListener("keyup", function () {
-                clearTimeout(searchTimeout);
-                const value = this.value.toLowerCase();
-                searchTimeout = setTimeout(() => loadTableData(value), 500);
-            });
-
+        // visibilitychange — may not fire on all Android WebViews
+        document.addEventListener("visibilitychange", function () {
+            dbg("visibilitychange: " + document.visibilityState);
+            if (document.visibilityState === "visible" && _appInitialized) doReinit();
         });
 
-    } else {
-        setTimeout(() => waitForXrm(attempts + 1), 500);
-    }
-}
-        // ─── Android WebView Recovery ───
-        // if (/Android/i.test(navigator.userAgent)) {
-        //     alert(isAndroidApp ? "ANDROID APP2" : "DESKTOP2");
-        //     setInterval(async () => {
-        //         try {
+        // pageshow — iOS / desktop dialog reuse
+        window.addEventListener("pageshow", function (event) {
+            dbg("pageshow persisted=" + event.persisted);
+            if ((event.persisted || performance.navigation?.type === 2) && _appInitialized) doReinit();
+        });
 
-        //             const tableBody = document.querySelector("#productTable tbody");
-        //             const hasRows = tableBody && tableBody.children.length > 0;
+        // focus — fires when WebView panel is brought back to front on some Android versions
+        window.addEventListener("focus", function () {
+            dbg("window.focus _appInitialized=" + _appInitialized);
+            if (_appInitialized) doReinit();
+        });
 
-        //             if (!hasRows && workorderId && parentProductId) {
-        //                 console.log("Android blank WebView detected. Reloading table.");
-        //                 await loadTableData("");
-        //             }
+        // setInterval URL poller — catches second open when Dynamics updates the href
+        // without firing any page-lifecycle event
+        setInterval(function () {
+            const h = window.location.href;
+            if (!_pollHref) { _pollHref = h; return; }
+            if (h !== _pollHref) {
+                dbg("href changed → reinit");
+                _pollHref = h;
+                if (_appInitialized) doReinit();
+            }
+        }, 800);
 
-        //         } catch (e) {
-        //             console.log("Android recovery failed", e);
-        //         }
-        //     }, 1500);
-        // }
+        function waitForXrm(attempts) {
+            if (attempts > 20) {
+                dbg("XRM TIMEOUT after 20 attempts");
+                _reinitPending = false;
+                return;
+            }
+            if (typeof Xrm !== "undefined" && Xrm.WebApi) {
+                dbg("XRM ready at attempt " + attempts);
+                _appInitialized = true;
+
+                showLoader(true);
+                loadTableData("").then(() => {
+                    _reinitPending = false;
+                    _pollHref = window.location.href;  // snapshot so poller ignores this open
+
+                    const btn = document.getElementById("submitBtn");
+                    btn.onclick = null;
+                    btn.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        submitSelectedProducts();
+                    });
+
+                    const searchBox = document.getElementById("searchBox");
+                    const newSearchBox = searchBox.cloneNode(true);
+                    searchBox.parentNode.replaceChild(newSearchBox, searchBox);
+                    newSearchBox.addEventListener("keyup", function () {
+                        clearTimeout(searchTimeout);
+                        const value = this.value.toLowerCase();
+                        searchTimeout = setTimeout(() => loadTableData(value), 500);
+                    });
+                });
+            } else {
+                setTimeout(() => waitForXrm(attempts + 1), 500);
+            }
+        }
 
         // ─── LOGIC end ───
 
 
 
         function getUrlParams() {
-    try {
-        const params = new URLSearchParams(window.location.search);
-        const dataParam = params.get("data");
-        if (dataParam) {
-            const parsed = JSON.parse(decodeURIComponent(dataParam));
-            alert("PARAMS OK\nWorkorderId: " + parsed.WorkorderId + "\nParentProductId: " + parsed.ParentProductId);
-            return parsed;
-        } else {
-            alert("NO DATA PARAM\nFull URL: " + window.location.href.substring(0, 300));
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const dataParam = params.get("data");
+                if (dataParam) {
+                    const parsed = JSON.parse(decodeURIComponent(dataParam));
+                    dbg("PARAMS OK WO:" + (parsed.WorkorderId || "").substring(0, 8) + " PP:" + (parsed.ParentProductId || "").substring(0, 8));
+                    return parsed;
+                } else {
+                    dbg("NO DATA PARAM href:" + window.location.href.substring(0, 150));
+                }
+            } catch (e) {
+                dbg("PARSE ERROR: " + e.message);
+            }
+            return null;
         }
-    } catch (e) {
-        alert("PARSE ERROR: " + e.message + "\nRaw search: " + window.location.search.substring(0, 200));
-    }
-    return null;
-}
 
         // ─── Helpers ──────────────────────────────────────────────────────────────
         function showLoader(visible) {
@@ -651,12 +680,7 @@ function waitForXrm(attempts) {
         // ─── Load Table ───────────────────────────────────────────────────────────
         async function loadTableData(searchValue) {
             showLoader(true);
-
-             // ── TEMP DEBUG -—
-            const rawUrl = window.location.href;
-            const rawSearch = window.location.search;
-            alert("DEBUG loadTableData called\nSearch: " + rawSearch.substring(0, 250) + "\nHref: " + rawUrl.substring(0, 250));
-            // ── END DEBUG ──
+            dbg("loadTableData search='" + searchValue + "'");
 
             const queryParams = getUrlParams();
 
@@ -1037,6 +1061,9 @@ function waitForXrm(attempts) {
 
 <!-- <body style="overflow-wrap: break-word;" onfocusout="parent.setEmailRange();"> -->
     <body style="overflow-wrap: break-word;">
+    <!-- Debug overlay: remove once second-open reinit is confirmed working -->
+    <div id="debugLog"></div>
+
     <input type="text" id="searchBox" placeholder="Search product...">
 
     <div id="loadingIndicator" class="loader-container">
