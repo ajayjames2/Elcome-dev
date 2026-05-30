@@ -456,52 +456,74 @@
         const selectedProductData = new Map();
 
         // ─── Init ─────────────────────────────────────────────────────────────────
-        // document.addEventListener("DOMContentLoaded", async () => {
+let _appInitialized = false;  // guard so onload doesn't double-init
 
-        // ─── LOGIC start ───
-        window.onload = function () {
+window.onload = function () {
+    _appInitialized = false;
     waitForXrm(0);
 };
 
-window.addEventListener("pageshow", function(event) {
-    if (event.persisted || performance.navigation?.type === 2) {
+// Fires when WebView panel is re-shown on Android (second open)
+document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && _appInitialized) {
         selectedProducts.clear();
         selectedProductData.clear();
+        workorderId     = null;
+        parentProductId = null;
+        sessionStorage.removeItem("workorderId");
+        sessionStorage.removeItem("parentProductId");
+        waitForXrm(0);
+    }
+});
+
+// Fallback: pageshow for iOS / desktop dialog reuse
+window.addEventListener("pageshow", function (event) {
+    if ((event.persisted || performance.navigation?.type === 2) && _appInitialized) {
+        selectedProducts.clear();
+        selectedProductData.clear();
+        workorderId     = null;
+        parentProductId = null;
+        sessionStorage.removeItem("workorderId");
+        sessionStorage.removeItem("parentProductId");
         waitForXrm(0);
     }
 });
 
 function waitForXrm(attempts) {
     if (attempts > 20) {
-        showAlertDialog("Xrm context failed to load after 10s. Please close and retry.");
+        alert("XRM TIMEOUT after 20 attempts");
         return;
     }
     if (typeof Xrm !== "undefined" && Xrm.WebApi) {
+
+        _appInitialized = true;  // mark as ready so visibilitychange can trigger reinit
+
         const isAndroidApp = /Android/i.test(navigator.userAgent);
-        alert("XRM READY on attempt: " + attempts); 
-        // Comments for Test Android Device
-        // showAlertDialog(isAndroidApp ? "ANDROID APP" : "DESKTOP");
-        // showAlertDialog("USER AGENT:\n\n" + navigator.userAgent);
 
         showLoader(true);
         loadTableData("").then(() => {
-            //Submit_Btn
-             const btn = document.getElementById("submitBtn");
+
+            // submitBtn — null-safe to prevent double-binding
+            const btn = document.getElementById("submitBtn");
             btn.onclick = null;
             btn.addEventListener("click", (e) => {
                 e.preventDefault();
                 submitSelectedProducts();
             });
-            //── searchBox ──
-            document.getElementById("searchBox").addEventListener("keyup", function () {
+
+            // searchBox — remove old listener before adding new one
+            const searchBox = document.getElementById("searchBox");
+            const newSearchBox = searchBox.cloneNode(true);  // cloneNode strips all listeners
+            searchBox.parentNode.replaceChild(newSearchBox, searchBox);
+            newSearchBox.addEventListener("keyup", function () {
                 clearTimeout(searchTimeout);
                 const value = this.value.toLowerCase();
                 searchTimeout = setTimeout(() => loadTableData(value), 500);
             });
+
         });
 
     } else {
-        // Xrm not ready yet — retry after 500ms
         setTimeout(() => waitForXrm(attempts + 1), 500);
     }
 }
