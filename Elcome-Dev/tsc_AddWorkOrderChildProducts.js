@@ -24,6 +24,10 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                 cacheBuster:     Date.now()
             };
 
+            // DEBUG — remove once values confirmed on device
+            showAlertDialog("WorkOrder ID: " + WorkOrderData.WorkorderId);
+            showAlertDialog("Parent Product ID: " + WorkOrderData.ParentProductId);
+
             // localStorage bridge — mobile may not pass the data URL param reliably
             try { localStorage.setItem("tsc_childproducts_params", JSON.stringify(WorkOrderData)); } catch (e) {}
 
