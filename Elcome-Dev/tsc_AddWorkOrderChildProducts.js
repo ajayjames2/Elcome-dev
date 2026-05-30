@@ -1,6 +1,3 @@
-// Guard: prevents a second navigateTo while the first dialog's Promise is still
-// pending (unresolved). If navigateTo never resolves (e.g. window.close() was
-// ignored), the guard auto-resets after 5 minutes so the button stays usable.
 var _navigationInProgress = false;
 var _navigationResetTimer = null;
 
@@ -46,19 +43,28 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                 cacheBuster:     Date.now()
             };
 
+            var clientType = Xrm.Utility.getGlobalContext().client.getClient();
+
+            var navigationOptions =
+                clientType === "Mobile"
+                    ? {
+                        target: 1
+                    }
+                    : {
+                        target: 2,
+                        width: 1000,
+                        height: 600,
+                        position: 1,
+                        title: "Add Child Products"
+                    };
+            
             return Xrm.Navigation.navigateTo(
                 {
-                    pageType:        "webresource",
+                    pageType: "webresource",
                     webresourceName: "tsc_Elcome.AddChildWOProducts.MobileApp.Form",
-                    data:            JSON.stringify(WorkOrderData)
+                    data: JSON.stringify(WorkOrderData)
                 },
-                {
-                    target:   2,
-                    width:    1000,
-                    height:   600,
-                    position: 1,
-                    title:    "Add Child Products"
-                }
+                navigationOptions
             );
         })
         .then(function () {
