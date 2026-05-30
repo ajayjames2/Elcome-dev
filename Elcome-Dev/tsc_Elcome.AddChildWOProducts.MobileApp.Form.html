@@ -499,6 +499,11 @@
             parentProductId = null;
             sessionStorage.removeItem("workorderId");
             sessionStorage.removeItem("parentProductId");
+            // Reset confirmation overlay in case dialog was closed mid-flow
+            document.getElementById("confirmationOverlay").style.display  = "none";
+            document.getElementById("confirmationActionButtons").style.display = "flex";
+            document.getElementById("processingButton").style.display     = "none";
+            document.getElementById("okButton").style.display             = "none";
             waitForXrm(0);
         }
 
@@ -969,14 +974,14 @@
         }
 
         function closeDialogSafe() {
+            // history.back() was corrupting the WebView — navigated it to about:blank
+            // so the second navigateTo reused a blank WebView and never reloaded the page.
+            // window.close() is intercepted by Dynamics at the native level and properly
+            // tears down the dialog container, so the next open gets a fresh WebView.
             try {
-                if (/Android/i.test(navigator.userAgent)) {
-                    history.back();
-                } else {
-                    window.close();
-                }
-            } catch (e) {
                 window.close();
+            } catch (e) {
+                dbg("window.close() failed: " + e.message);
             }
         }
 
