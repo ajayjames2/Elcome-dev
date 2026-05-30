@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Workorder Product Table</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            background: white;
+        }
+
+        th {
+            background: #faf9f8;
+            color: #323130;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 10px;
+            border-bottom: 1px solid #edebe9;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #f3f2f1;
+            color: #323130;
+        }
+
+        tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        tbody tr:hover {
+            background: #f5f5f5;
+        }
+
+        .selectCheckbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .button {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 90px;
+            display: inline-flex;
+            /* align-content: center; */
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+
+        #submitBtn {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        #submitBtn:hover {
+            background-color: #106ebe;
+        }
+
+        input[type="reset"] {
+            background-color: #f3f2f1;
+            color: #323130;
+            border: 1px solid #d1d1d1;
+        }
+
+        input[type="reset"]:hover {
+            background-color: #edebe9;
+        }
+
+        .footer-buttons {
+            position: sticky;
+            bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: white;
+            z-index: 30;
+        }
+
+        .footer-status {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 14px;
+            font-family: "Segoe UI", sans-serif;
+            color: #605e5c;
+            padding-left: 4px;
+        }
+
+        #rowCount, #selectedCount {
+            letter-spacing: 0.1px;
+            line-height: 20px;
+        }
+
+        .footer-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        #productForm {
+            height: calc(100vh - 70px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .table-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin: 0 12px;
+            border: 1px solid #edebe9;
+            border-radius: 8px;
+            background: white;
+        }
+
+        #productTable thead th {
+            position: sticky;
+            top: 0;
+            background: #faf9f8;
+            z-index: 20;
+        }
+
+        .loader-container {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 9999;
+            backdrop-filter: blur(2px);
+        }
+
+        .loader {
+            border: 3px solid rgba(255,255,255,0.35);
+            border-top: 3px solid #0078d4;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px auto;
+        }
+
+        .loader-container p {
+            margin: 0;
+            font-size: 14px;
+            color: white;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .loader-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .loader-content p {
+            margin-top: 8px;
+        }
+
+        @keyframes spin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #searchBox {
+            width: 100%;
+            max-width: 260px;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #d1d1d1;
+            border-radius: 8px;
+            outline: none;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            margin: 12px;
+        }
+
+        #searchBox:focus {
+            border-color: #605e5c;
+            box-shadow: 0 0 0 2px rgba(96, 94, 92, 0.15);
+        }
+
+        .confirmation-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35);
+            z-index: 10000;
+            backdrop-filter: blur(2px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirmation-dialog {
+            font-family: "Segoe UI", sans-serif;
+            width: 720px;
+            max-width: 90vw;
+            max-height: 80vh;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        }
+
+        .confirmation-header {
+            padding: 16px 20px;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 1px solid #edebe9;
+            color: #323130;
+        }
+
+        .confirmation-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        } 
+
+        .confirmation-columns,
+        .confirmation-row {
+            display: grid;
+            grid-template-columns: 70px 1fr 220px 40px;
+            align-items: center;
+        }
+
+        .confirmation-columns {
+            position: sticky;
+            top: 0;
+            background: #faf9f8;
+            font-weight: 600;
+            color: #605e5c;
+            padding: 12px 20px;
+            border-bottom: 1px solid #edebe9;
+            z-index: 5;
+        }
+
+        .confirmation-row {
+            padding: 12px 20px;
+            border-bottom: 1px solid #f3f2f1;
+            font-size: 14px;
+            color: #323130;
+        }
+
+        .confirmation-row:hover {
+            background: #faf9f8;
+        }
+
+        .confirmation-status {
+            font-size: 18px;
+        }
+
+        .confirmation-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 16px;
+            border-top: 1px solid #edebe9;
+            background: white;
+        }
+
+        #confirmationActionButtons {
+            display: flex;
+            gap: 8px;
+        }
+
+        #okButton {
+            margin-left: auto;
+        }
+
+        .confirmation-cancel {
+            background: #f3f2f1;
+            color: #323130;
+            border: 1px solid #d1d1d1;
+        }
+
+        .confirmation-cancel:hover {
+            background: #edebe9;
+        }
+
+        .confirmation-confirm {
+            background: #0078d4;
+            color: white;
+        }
+
+        .confirmation-confirm:hover {
+            background: #106ebe;
+        }
+
+        .confirmation-processing {
+            background: #edebe9;
+            color: #605e5c;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: default;
+        }
+
+        .processing-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(96,94,92,0.3);
+            border-top: 2px solid #605e5c;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .error-info {
+            margin-left: 8px;
+            cursor: pointer;
+            color: #d83b01;
+            font-size: 14px;
+        }
+
+        .confirmation-error-message {
+            grid-column: 2 / 5;
+            margin-top: 8px;
+            padding: 10px 12px;
+            background: #fff4ce;
+            border-left: 3px solid #d83b01;
+            border-radius: 4px;
+            color: #323130;
+            font-size: 13px;
+            line-height: 18px;
+        }
+
+        .confirmation-summary {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-right: auto;
+            font-size: 14px;
+            color: #605e5c;
+            font-family: "Segoe UI", sans-serif;
+        }
+
+        #successCountText {
+            color: #107c10;
+            font-weight: 600;
+        }
+
+        #failedCountText {
+            color: #d83b01;
+            font-weight: 600;
+        }
+
+
+        @media screen and (max-width: 900px) {
+            
+            /* Main popup dialog */
+            .confirmation-dialog {
+                width: 96vw;
+                max-width: 96vw;
+                max-height: 88vh;
+            }
+
+            /* Allow horizontal scrolling in main table */
+            .table-wrapper {
+                overflow-x: auto;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            #productTable {
+                min-width: 900px;
+            }
+
+            /* Confirmation popup horizontal scroll */
+            .confirmation-body {
+                overflow-x: auto;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .confirmation-columns,
+            .confirmation-row {
+                min-width: 760px;
+            }
+
+            /* Better mobile spacing */
+            th,
+            td {
+                white-space: nowrap;
+            }
+
+            /* Footer buttons responsive */
+            .confirmation-footer {
+                flex-wrap: wrap;
+            }
+
+            #confirmationActionButtons {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            /* Better touch targets */
+            .button {
+                min-height: 40px;
+            }
+
+            .selectCheckbox {
+                width: 20px;
+                height: 20px;
+            }
+        }
+        /* Hidden columns: Price (4), Quantity (5), Product Unit GUID (6) */
+        th:nth-child(4),
+        th:nth-child(5),
+        th:nth-child(6),
+        td:nth-child(4),
+        td:nth-child(6),
+        td:nth-child(7) {
+            display: none;
+        }
+    </style>
+
+    <script src="ClientGlobalContext.js.aspx" type="text/javascript"></script>
+    <script>
+        // ─── State ────────────────────────────────────────────────────────────────
+        let workorderId        = null;
+        let parentProductId    = null;
+        let fnoprojectvalue    = null;
+        let fnoprojectname     = null;
+        let companyvalue       = null;
+        let companyname        = null;
+        let searchTimeout      = null;
+        const selectedProducts = new Set();
+        const selectedProductData = new Map();
+
+        // ─── Init ─────────────────────────────────────────────────────────────────
+        // document.addEventListener("DOMContentLoaded", async () => {
+
+        // ─── LOGIC start ───
+        window.onload = function () {
+    waitForXrm(0);
+};
+
+window.addEventListener("pageshow", function(event) {
+    if (event.persisted || performance.navigation?.type === 2) {
+        selectedProducts.clear();
+        selectedProductData.clear();
+        waitForXrm(0);
+    }
+});
+
+function waitForXrm(attempts) {
+    if (attempts > 20) {
+        showAlertDialog("Xrm context failed to load after 10s. Please close and retry.");
+        return;
+    }
+    if (typeof Xrm !== "undefined" && Xrm.WebApi) {
+        const isAndroidApp = /Android/i.test(navigator.userAgent);
+        alert("XRM READY on attempt: " + attempts); 
+        // Comments for Test Android Device
+        // showAlertDialog(isAndroidApp ? "ANDROID APP" : "DESKTOP");
+        // showAlertDialog("USER AGENT:\n\n" + navigator.userAgent);
+
+        showLoader(true);
+        loadTableData("").then(() => {
+            //Submit_Btn
+             const btn = document.getElementById("submitBtn");
+            btn.onclick = null;
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                submitSelectedProducts();
+            });
+            //── searchBox ──
+            document.getElementById("searchBox").addEventListener("keyup", function () {
+                clearTimeout(searchTimeout);
+                const value = this.value.toLowerCase();
+                searchTimeout = setTimeout(() => loadTableData(value), 500);
+            });
+        });
+
+    } else {
+        // Xrm not ready yet — retry after 500ms
+        setTimeout(() => waitForXrm(attempts + 1), 500);
+    }
+}
+        // ─── Android WebView Recovery ───
+        // if (/Android/i.test(navigator.userAgent)) {
+        //     alert(isAndroidApp ? "ANDROID APP2" : "DESKTOP2");
+        //     setInterval(async () => {
+        //         try {
+
+        //             const tableBody = document.querySelector("#productTable tbody");
+        //             const hasRows = tableBody && tableBody.children.length > 0;
+
+        //             if (!hasRows && workorderId && parentProductId) {
+        //                 console.log("Android blank WebView detected. Reloading table.");
+        //                 await loadTableData("");
+        //             }
+
+        //         } catch (e) {
+        //             console.log("Android recovery failed", e);
+        //         }
+        //     }, 1500);
+        // }
+
+        // ─── LOGIC end ───
+
+
+
+        function getUrlParams() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const dataParam = params.get("data");
+        if (dataParam) {
+            const parsed = JSON.parse(decodeURIComponent(dataParam));
+            alert("PARAMS OK\nWorkorderId: " + parsed.WorkorderId + "\nParentProductId: " + parsed.ParentProductId);
+            return parsed;
+        } else {
+            alert("NO DATA PARAM\nFull URL: " + window.location.href.substring(0, 300));
+        }
+    } catch (e) {
+        alert("PARSE ERROR: " + e.message + "\nRaw search: " + window.location.search.substring(0, 200));
+    }
+    return null;
+}
+
+        // ─── Helpers ──────────────────────────────────────────────────────────────
+        function showLoader(visible) {
+            document.getElementById("loadingIndicator").style.display = visible ? "block" : "none";
+        }
+
+        function showAlertDialog(message) {
+            try {
+                if (window.Xrm && Xrm.Navigation && Xrm.Navigation.openAlertDialog) {
+                    Xrm.Navigation.openAlertDialog(
+                        { confirmButtonLabel: "OK", text: message },
+                        { height: 200, width: 400 }
+                    );
+                } else {
+                    alert(message);
+                }
+            } catch (e) {
+                alert(message);
+            }
+        }
+
+        function updateFooterCounts() {
+            const totalRows    = document.querySelectorAll("#productTable tbody tr").length;
+            const selectedRows = selectedProducts.size;
+
+            document.getElementById("rowCount").innerText = `Rows: ${totalRows}`;
+
+            const selectedEl = document.getElementById("selectedCount");
+            if (selectedRows > 0) {
+                selectedEl.style.display = "inline";
+                selectedEl.innerText = `Selected: ${selectedRows}`;
+            } else {
+                selectedEl.style.display = "none";
+            }
+        }
+
+        function handleProductSelection(checkbox) {
+            const productId = checkbox.value;
+            const row = checkbox.closest("tr");
+
+            const productName = row.cells[1].innerText;
+            const productNumber = row.cells[2].innerText;
+            const unitGuid = row.cells[5].innerText;
+
+            if (checkbox.checked) {
+                selectedProducts.add(productId);
+                selectedProductData.set(productId, {productId, productName, productNumber, unitGuid});
+
+            } else {
+                selectedProducts.delete(productId);
+                selectedProductData.delete(productId);
+            }
+
+            updateFooterCounts();
+            toggleCheckboxes(checkbox, 'suggestedCheckbox');
+        }
+
+        function buildInventoryFetchXml(productNumbers, companyFilter) {
+            const valuesXml = productNumbers.map(n => `<value>${n}</value>`).join("");
+            const companyCondition = companyFilter
+                ? `<condition attribute="mserp_dataareaid" operator="eq" value="${companyFilter}" />`
+                : "";
+            return `
+                <fetch distinct="false" mapping="logical" aggregate="true">
+                    <entity name="mserp_inventwarehouseonhandv2entity">
+                        <attribute name="mserp_itemnumber" alias="itemnumber" groupby="true" />
+                        <attribute name="mserp_availableonhandquantity" alias="sum_total" aggregate="sum" />
+                        <filter type="and">
+                            ${companyCondition}
+                            <condition attribute="mserp_itemnumber" operator="in">${valuesXml}</condition>
+                        </filter>
+                    </entity>
+                </fetch>`;
+        }
+
+        function buildInventoryMap(entities) {
+            const map = {};
+            entities.forEach(x => { map[x.itemnumber] = x.sum_total || 0; });
+            return map;
+        }
+
+        // ─── Load Table ───────────────────────────────────────────────────────────
+        async function loadTableData(searchValue) {
+            showLoader(true);
+
+             // ── TEMP DEBUG -—
+            const rawUrl = window.location.href;
+            const rawSearch = window.location.search;
+            alert("DEBUG loadTableData called\nSearch: " + rawSearch.substring(0, 250) + "\nHref: " + rawUrl.substring(0, 250));
+            // ── END DEBUG ──
+
+            const queryParams = getUrlParams();
+
+            if (queryParams) {
+                workorderId     = queryParams["WorkorderId"];
+                parentProductId = queryParams["ParentProductId"];
+
+                sessionStorage.setItem("workorderId",     workorderId);
+                sessionStorage.setItem("parentProductId", parentProductId);
+            } else {
+                workorderId     = workorderId     || sessionStorage.getItem("workorderId");
+                parentProductId = parentProductId || sessionStorage.getItem("parentProductId");
+            }
+
+            if (!workorderId || !parentProductId) {
+                showAlertDialog("Unable to load Work Order information. Please reopen the popup.");
+                showLoader(false);
+                return;
+            }
+
+            try {
+                // ── Step 1: BOM version + workorder in parallel ──────────────────
+                const bomFilterQuery = `?$filter=_tsc_itemnumber_value eq '${parentProductId}'`;
+
+                const [bomResult, workorderResult] = await Promise.all([
+                    Xrm.WebApi.retrieveMultipleRecords("tsc_billofmaterialsversion", bomFilterQuery),
+                    Xrm.WebApi.retrieveRecord("msdyn_workorder", workorderId, "?$select=_tsc_projects_value,_tsc_company_value")
+                ]);
+
+                if (!bomResult.entities || bomResult.entities.length === 0) {
+                    showAlertDialog("No billofmaterialversion records found.");
+                    showLoader(false);
+                    return;
+                }
+
+                // Workorder fields
+                fnoprojectvalue = workorderResult._tsc_projects_value;
+                fnoprojectname  = workorderResult["_tsc_projects_value@OData.Community.Display.V1.FormattedValue"];
+                companyvalue    = workorderResult._tsc_company_value;
+                companyname     = workorderResult["_tsc_company_value@OData.Community.Display.V1.FormattedValue"];
+
+                // ── Step 2: BOM lines ────────────────────────────────────────────
+                let bomLineFilterQuery = `?$filter=_tsc_bomlinesid_value eq '${bomResult.entities[0].tsc_billofmaterialsversionid}'`;
+
+                if (searchValue && searchValue.trim() !== "") {
+                    bomLineFilterQuery += ` and (contains(tsc_Product/name,'${searchValue}') or contains(tsc_Product/msdyn_productnumber,'${searchValue}'))`;
+                }
+
+                bomLineFilterQuery += "&$select=tsc_name,_tsc_product_value";
+                bomLineFilterQuery += "&$expand=tsc_Product($select=name,currentcost,_defaultuomid_value,msdyn_productnumber)";
+                bomLineFilterQuery += "&$top=60";
+
+                const bomLineResult = await Xrm.WebApi.retrieveMultipleRecords("tsc_billofmaterialsline", bomLineFilterQuery);
+
+                if (!bomLineResult.entities || bomLineResult.entities.length === 0) {
+                    showAlertDialog("No billofmaterialline records found.");
+                    showLoader(false);
+                    return;
+                }
+
+                // Deduplicate product numbers
+                const productNumbers = [
+                    ...new Set(
+                        bomLineResult.entities
+                            .map(x => x.tsc_Product?.msdyn_productnumber)
+                            .filter(Boolean)
+                    )
+                ];
+
+                // ── Step 3: Company + global inventory in parallel ───────────────
+                const [companyInventoryResult, globalInventoryResult] = await Promise.all([
+                    Xrm.WebApi.retrieveMultipleRecords(
+                        "mserp_inventwarehouseonhandv2entity",
+                        "?fetchXml=" + encodeURIComponent(buildInventoryFetchXml(productNumbers, companyname))
+                    ),
+                    Xrm.WebApi.retrieveMultipleRecords(
+                        "mserp_inventwarehouseonhandv2entity",
+                        "?fetchXml=" + encodeURIComponent(buildInventoryFetchXml(productNumbers, null))
+                    )
+                ]);
+
+                const companyInventoryMap = buildInventoryMap(companyInventoryResult.entities);
+                const globalInventoryMap  = buildInventoryMap(globalInventoryResult.entities);
+
+                // ── Step 4: Build rows with deduplication ────────────────────────
+                const addedProducts = new Set();
+                const fragment      = document.createDocumentFragment();
+
+                for (const bomLine of bomLineResult.entities) {
+                    const productId = bomLine._tsc_product_value;
+                    if (addedProducts.has(productId)) continue;
+                    addedProducts.add(productId);
+
+                    const productNumber  = bomLine.tsc_Product?.msdyn_productnumber || "";
+                    const productName    = bomLine.tsc_Product?.name || "";
+                    const unitId         = bomLine.tsc_Product?._defaultuomid_value || "";
+                    const onHandQty      = companyInventoryMap[productNumber] || 0;
+                    const totalQty       = globalInventoryMap[productNumber]  || 0;
+
+                    const tr = document.createElement("tr");
+                    tr.setAttribute("data-visible", "true");
+                    tr.innerHTML = `
+                        <td><input type="checkbox" name="selectProduct" class="selectCheckbox" value="${productId}" ${selectedProducts.has(productId) ? "checked" : ""} onclick="handleProductSelection(this);"></td>
+                        <td>${productName}</td>
+                        <td>${productNumber}</td>
+                        <td>0</td>
+                        <td>1</td>
+                        <td>${unitId}</td>
+                        <td>${onHandQty}</td>
+                        <td>${totalQty}</td>`;
+
+                    fragment.appendChild(tr);
+                }
+
+                const tableBody = document.querySelector("#productTable tbody");
+                tableBody.innerHTML = "";
+                tableBody.appendChild(fragment);
+                updateFooterCounts();
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                showAlertDialog("An error occurred while loading data. Please try again.");
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        // ─── Checkbox Toggle ──────────────────────────────────────────────────────
+        function toggleCheckboxes(clickedCheckbox, targetClass) {
+            const row            = clickedCheckbox.closest("tr");
+            const targetCheckbox = row.querySelector("." + targetClass);
+            if (!targetCheckbox) return;
+
+            if (clickedCheckbox.checked) {
+                targetCheckbox.disabled = true;
+                targetCheckbox.checked  = false;
+            } else {
+                targetCheckbox.disabled = false;
+            }
+        }
+
+        // ─── Clear Form ───────────────────────────────────────────────────────────
+        function clearForm() {
+            document.querySelectorAll("#productForm input[type='checkbox']").forEach(el => {
+                el.checked  = false;
+                el.disabled = false;
+            });
+            selectedProducts.clear();
+            selectedProductData.clear();
+            updateFooterCounts();
+        }
+
+        // ─── Submit ───────────────────────────────────────────────────────────────
+        async function submitSelectedProducts() {
+            const selectedItems = Array.from(selectedProductData.values());
+
+            if (selectedItems.length === 0) {
+                showAlertDialog("There is no records are selected. Please select records to create quote products.");
+                return;
+            }
+
+            openConfirmationDialog();
+            // return;
+
+            // Xrm.Utility.showProgressIndicator("Creating child products...");
+
+            // try {
+            //     // Check existing records in parallel before building create requests
+            //     // const existenceChecks = Array.from(checkedBoxes).map(cb => {
+            //     //     const productId  = cb.value;
+            //     //     const filterQuery = `?$filter=_tsc_workorder_value eq '${workorderId}' and _tsc_product_value eq '${productId}'`;
+            //     //     return Xrm.WebApi.retrieveMultipleRecords("tsc_itemrequirement", filterQuery)
+            //     //         .then(result => ({ cb, productId, exists: result.entities.length > 0 }));
+            //     // });
+
+            //     const existenceChecks = selectedItems.map(item => {
+            //         const filterQuery = `?$filter=_tsc_workorder_value eq '${workorderId}' and _tsc_product_value eq '${item.productId}'`;
+            //         return Xrm.WebApi.retrieveMultipleRecords("tsc_itemrequirement",filterQuery)
+            //             .then(result => ({ item, exists: result.entities.length > 0 }));
+            //     });
+
+
+            //     const existenceResults = await Promise.all(existenceChecks);
+
+            //     // const createRequests = existenceResults
+            //     //     .filter(({ exists }) => !exists)
+            //     //     .map(({ cb, productId }) => {
+            //     //         const row      = cb.closest("tr");
+            //     //         const unitGuid = row.cells[5].innerText;
+
+            //     //         const entity = {
+            //     //             "tsc_Product@odata.bind":   `/products(${productId})`,
+            //     //             "tsc_WorkOrder@odata.bind": `/msdyn_workorders(${workorderId})`,
+            //     //             "tsc_Unit@odata.bind":      `/uoms(${unitGuid})`,
+            //     //             "tsc_Projects@odata.bind":  `/tsc_projects(${fnoprojectvalue})`,
+            //     //             "tsc_Company@odata.bind":   `/cdm_companies(${companyvalue})`,
+            //     //             "tsc_projectid":            fnoprojectname,
+            //     //             "tsc_estimatequantity":     1
+            //     //         };
+
+            //     //         return new CreateRequest("tsc_itemrequirement", entity);
+            //     //     });
+
+            //     const createRequests = existenceResults
+            //         .filter(({ exists }) => !exists)
+            //         .map(({ item }) => {
+            //             const entity = {
+            //                 "tsc_Product@odata.bind": `/products(${item.productId})`,
+            //                 "tsc_WorkOrder@odata.bind": `/msdyn_workorders(${workorderId})`,
+            //                 "tsc_Unit@odata.bind": `/uoms(${item.unitGuid})`,
+            //                 "tsc_Projects@odata.bind": `/tsc_projects(${fnoprojectvalue})`,
+            //                 "tsc_Company@odata.bind": `/cdm_companies(${companyvalue})`,
+            //                 "tsc_projectid": fnoprojectname,
+            //                 "tsc_estimatequantity": 1
+            //             };
+                        
+            //             return new CreateRequest("tsc_itemrequirement", entity);
+            //         });
+
+
+
+            //     if (createRequests.length > 0) {
+            //         const result = await Xrm.WebApi.online.executeMultiple(createRequests);
+            //         if (result) {
+            //             const successCount = result.filter(x => x.ok).length;
+            //             showAlertDialog(
+            //                 successCount === 1
+            //                     ? "Only 1 child product is added."
+            //                     : `There are ${successCount} child products added.`
+            //             );
+            //         }
+            //     }
+            // } catch (error) {
+            //     console.error("Submit error:", error);
+            //     showAlertDialog("An error occurred during submission.");
+            // } finally {
+            //     Xrm.Utility.closeProgressIndicator();
+            //     window.close();
+            // }
+        }
+
+
+        function openConfirmationDialog() {
+            const confirmationList = document.getElementById("confirmationList");
+            confirmationList.innerHTML = "";
+            const selectedItems = Array.from(selectedProductData.values());
+
+            document.getElementById("totalProductsText").innerText = `Products: ${selectedItems.length}`;
+            document.getElementById("successCountText").style.display = "none";
+            document.getElementById("failedCountText").style.display = "none";
+
+            selectedItems.forEach(item => {
+                const row = document.createElement("div");
+                row.className = "confirmation-row";
+                row.id = `row-${item.productId}`;
+                row.innerHTML = `
+                    <span class="confirmation-status" id="status-${item.productId}">⏳</span>
+                    <span>${item.productName}</span>
+                    <span>${item.productNumber}</span>
+                    <span id="info-${item.productId}"></span>
+                `;
+                confirmationList.appendChild(row);
+            });
+
+            document.getElementById("confirmationOverlay").style.display = "flex";
+        }
+
+        function closeConfirmationDialog() {
+            document.getElementById("confirmationOverlay").style.display = "none";
+        }
+
+        function toggleErrorMessage(productId, message) {
+            const existing = document.getElementById(`error-${productId}`);
+
+            if (existing) {
+                existing.remove();
+                return;
+            }
+
+           const row = document.getElementById(`row-${productId}`);
+           const errorDiv = document.createElement("div");
+           errorDiv.id = `error-${productId}`;
+           errorDiv.className = "confirmation-error-message";
+           errorDiv.innerText = message;
+           row.appendChild(errorDiv);
+        }
+
+        function closeDialogSafe() {
+            try {
+                if (/Android/i.test(navigator.userAgent)) {
+                    history.back();
+                } else {
+                    window.close();
+                }
+            } catch (e) {
+                window.close();
+            }
+        }
+
+
+        async function confirmProductCreation() {
+            const selectedItems =Array.from(selectedProductData.values());
+            let successCount = 0;
+            let failedCount = 0;
+
+            document.getElementById("confirmationActionButtons").style.display = "none";
+            document.getElementById("processingButton").style.display = "flex";
+
+
+            const processingPromises = selectedItems.map(async (item) => {
+                const statusElement = document.getElementById(`status-${item.productId}`);
+                const infoElement = document.getElementById(`info-${item.productId}`);
+
+                try {
+                    // ── Duplicate Check ──
+                    const filterQuery = `?$filter=_tsc_workorder_value eq '${workorderId}' and _tsc_product_value eq '${item.productId}'`;
+                    const existingResult =await Xrm.WebApi.retrieveMultipleRecords("tsc_itemrequirement",filterQuery);
+
+                    if (existingResult.entities.length > 0) {
+                        statusElement.innerText = "❌";
+                        failedCount++;
+                        infoElement.innerHTML = `<span class="error-info" onclick="toggleErrorMessage('${item.productId}','Product already exists')">ℹ️</span>`;
+
+                        return;
+                    }
+
+                    // ── Create Entity ──
+                    const entity = {
+                        "tsc_Product@odata.bind": `/products(${item.productId})`,
+                        "tsc_WorkOrder@odata.bind": `/msdyn_workorders(${workorderId})`,
+                        "tsc_Unit@odata.bind": `/uoms(${item.unitGuid})`,
+                        "tsc_Projects@odata.bind": `/tsc_projects(${fnoprojectvalue})`,
+                        "tsc_Company@odata.bind": `/cdm_companies(${companyvalue})`,
+                        "tsc_projectid": fnoprojectname,
+                        "tsc_estimatequantity": 1
+                    };
+
+                    await Xrm.WebApi.createRecord("tsc_itemrequirement", entity);
+                    statusElement.innerText = "✅";
+                    successCount++;
+
+                }
+                catch (error) {
+                    console.error(error);
+                    statusElement.innerText = "❌";
+                    failedCount++;
+
+                    infoElement.innerHTML = `<span class="error-info" onclick="toggleErrorMessage('${item.productId}',\`${error.message}\`)">ℹ️</span>`;
+                }
+            });
+            
+            await Promise.allSettled(processingPromises);
+
+            document.getElementById("successCountText").style.display = "inline";
+            document.getElementById("failedCountText").style.display = "inline";
+            document.getElementById("successCountText").innerText = `✅ Success: ${successCount}`;
+            document.getElementById("failedCountText").innerText = `❌ Failed: ${failedCount}`;
+
+
+            document.getElementById("processingButton").style.display = "none";
+            document.getElementById("okButton").style.display = "inline-flex";
+            console.log("All products processing completed");
+        }
+
+        // ─── Create Request Helper ────────────────────────────────────────────────
+        function CreateRequest(entityTypeName, payload) {
+            this.etn     = entityTypeName;
+            this.payload = payload;
+            this.getMetadata = () => ({
+                boundParameter: null,
+                parameterTypes: {},
+                operationType: 2,
+                operationName: "Create"
+            });
+        }
+    </script>
+</head>
+
+<!-- <body style="overflow-wrap: break-word;" onfocusout="parent.setEmailRange();"> -->
+    <body style="overflow-wrap: break-word;">
+    <input type="text" id="searchBox" placeholder="Search product...">
+
+    <div id="loadingIndicator" class="loader-container">
+        <div class="loader-content">
+            <div class="loader"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <form id="productForm">
+        <div class="table-wrapper">
+            <table id="productTable">
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Product Name</th>
+                        <th>Product Number</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Product Unit</th>
+                        <th>OnHand Quantity</th>
+                        <th>Total Quantity</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="footer-buttons">
+            <div class="footer-status">
+                <span id="rowCount">Rows: 0</span>
+                <span id="selectedCount" style="display: none;">Selected: 0</span>
+            </div>
+            <div class="footer-actions">
+                <input type="submit" class="button" id="submitBtn" value="Submit">
+                <input type="reset" class="button" value="Clear" onclick="clearForm()">
+            </div>
+        </div>
+    </form>
+
+    <div id="confirmationOverlay" class="confirmation-overlay">
+        <div class="confirmation-dialog">
+            <div class="confirmation-header">
+                <span>Confirm Product Creation</span>
+            </div>
+
+            <div class="confirmation-body">
+                <div class="confirmation-columns">
+                    <span>Status</span>
+                    <span>Product Name</span>
+                    <span>Product Number</span>
+                    <span></span>
+                </div>
+
+                <div id="confirmationList" class="confirmation-list">
+                </div>
+            </div>
+
+            <div class="confirmation-footer">
+
+                <div id="confirmationSummary" class="confirmation-summary">
+                    <span id="totalProductsText">Products: 0</span>
+                    <span id="successCountText" style="display:none;">✅ Success: 0</span>
+                    <span id="failedCountText" style="display:none;">❌ Failed: 0</span>
+                </div>
+
+                <div id="confirmationActionButtons">
+                    <button type="button" class="button confirmation-confirm" onclick="confirmProductCreation()">Confirm</button>
+
+                    <button type="button" class="button confirmation-cancel" onclick="closeConfirmationDialog()">Cancel</button>
+                </div>
+
+                <button type="button" id="processingButton" class="button confirmation-processing" style="display:none;" disabled>
+                    <span class="processing-spinner"></span>
+                    <span id="processingButtonText">Loading...</span>
+                </button>
+
+                <button type="button" id="okButton" class="button confirmation-confirm" style="display:none;" onclick="closeDialogSafe()">OK</button>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
