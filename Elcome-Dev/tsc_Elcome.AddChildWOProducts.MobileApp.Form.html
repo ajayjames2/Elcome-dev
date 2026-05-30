@@ -612,16 +612,29 @@
 
         function getUrlParams() {
             try {
-                const params = new URLSearchParams(window.location.search);
                 // Dynamics Desktop passes "data" (lowercase); Dynamics Mobile passes "Data" (capital D)
+                const params = new URLSearchParams(window.location.search);
                 const dataParam = params.get("data") || params.get("Data");
                 if (dataParam) {
                     const parsed = JSON.parse(decodeURIComponent(dataParam));
-                    dbg("PARAMS OK WO:" + (parsed.WorkorderId || "").substring(0, 8) + " PP:" + (parsed.ParentProductId || "").substring(0, 8));
-                    return parsed;
-                } else {
-                    dbg("NO DATA PARAM href:" + window.location.href.substring(0, 200));
+                    if (parsed && parsed.WorkorderId && parsed.ParentProductId) {
+                        dbg("PARAMS OK (URL) WO:" + parsed.WorkorderId.substring(0, 8));
+                        return parsed;
+                    }
                 }
+
+                // Fallback: localStorage bridge written by the ribbon JS before navigateTo.
+                // Used when mobile does not propagate the data URL param on second+ opens.
+                const stored = localStorage.getItem("tsc_childproducts_params");
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && parsed.WorkorderId && parsed.ParentProductId) {
+                        dbg("PARAMS OK (localStorage) WO:" + parsed.WorkorderId.substring(0, 8));
+                        return parsed;
+                    }
+                }
+
+                dbg("NO DATA PARAM href:" + window.location.href.substring(0, 200));
             } catch (e) {
                 dbg("PARSE ERROR: " + e.message);
             }

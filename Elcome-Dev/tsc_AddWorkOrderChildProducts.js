@@ -24,6 +24,9 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                 cacheBuster:     Date.now()
             };
 
+            // localStorage bridge — mobile may not pass the data URL param reliably
+            try { localStorage.setItem("tsc_childproducts_params", JSON.stringify(WorkOrderData)); } catch (e) {}
+
             return Xrm.Navigation.navigateTo(
                 {
                     pageType:        "webresource",
