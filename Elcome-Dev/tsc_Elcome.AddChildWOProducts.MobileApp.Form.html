@@ -613,13 +613,14 @@
         function getUrlParams() {
             try {
                 const params = new URLSearchParams(window.location.search);
-                const dataParam = params.get("data");
+                // Dynamics Desktop passes "data" (lowercase); Dynamics Mobile passes "Data" (capital D)
+                const dataParam = params.get("data") || params.get("Data");
                 if (dataParam) {
                     const parsed = JSON.parse(decodeURIComponent(dataParam));
                     dbg("PARAMS OK WO:" + (parsed.WorkorderId || "").substring(0, 8) + " PP:" + (parsed.ParentProductId || "").substring(0, 8));
                     return parsed;
                 } else {
-                    dbg("NO DATA PARAM href:" + window.location.href.substring(0, 150));
+                    dbg("NO DATA PARAM href:" + window.location.href.substring(0, 200));
                 }
             } catch (e) {
                 dbg("PARSE ERROR: " + e.message);
