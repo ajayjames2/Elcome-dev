@@ -45,7 +45,10 @@ function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds)
                     data:            JSON.stringify(WorkOrderData)
                 },
                 {
-                    target: 1
+                    target:    2,
+                    position:  1,
+                    height:    { value: 90, unit: "%" },
+                    width:     { value: 90, unit: "%" }
                 }
             );
         })
