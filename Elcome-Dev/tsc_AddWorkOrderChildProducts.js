@@ -1,14 +1,3 @@
-// WHY target:1 instead of target:2 (dialog):
-//
-// Field Service Mobile is a native Android app (Xamarin/MAUI) embedding WebViews.
-// With target:2 the Android OS routes the Back keypress to the WebView FIRST —
-// the WebView navigates its own history to about:blank before Dynamics can
-// intercept. The navigateTo Promise never resolves. On the next ribbon press,
-// Dynamics sees the old dialog as still pending and shows the same blank WebView.
-//
-// With target:1 Dynamics owns the navigation stack. Back is intercepted at the
-// Activity level, the Promise resolves cleanly, and every press gets a fresh
-// page load with window.onload firing correctly.
 
 function AddChildWorkOrderProducts(_formContext, selectedControlSelectedItemIds) {
     if (selectedControlSelectedItemIds.length === 0) {
